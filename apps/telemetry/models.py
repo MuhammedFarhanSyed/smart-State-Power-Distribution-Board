@@ -5,7 +5,7 @@ from apps.common.models import TimeStampedModel
 class Device(TimeStampedModel):
     """
     Represents an IoT telemetry sensor device fitted on a pole.
-    Devices can be swapped between poles over time.
+    Stores the latest known state of the physical hardware.
     """
     device_id = models.CharField(
         max_length=64,
@@ -28,11 +28,25 @@ class Device(TimeStampedModel):
         default=True,
         help_text="Whether the device is active in the field fleet (~4% are offline)."
     )
+    last_event = models.CharField(
+        max_length=32,
+        blank=True,
+        null=True,
+        help_text="Latest event type received (heartbeat, power_lost, power_restored, boot)."
+    )
+    last_energized_state = models.BooleanField(
+        default=True,
+        help_text="Latest known energization state (True = Live, False = Dark)."
+    )
+    last_sequence_number = models.BigIntegerField(
+        default=0,
+        help_text="Latest sequence number processed from device."
+    )
     last_seen_at = models.DateTimeField(
         null=True,
         blank=True,
         db_index=True,
-        help_text="Timestamp of most recent telemetry reading received."
+        help_text="Timestamp of most recent telemetry packet received."
     )
 
     class Meta:
@@ -42,12 +56,12 @@ class Device(TimeStampedModel):
         ordering = ['device_id']
 
     def __str__(self) -> str:
-        return f"Device {self.device_id} (FW: {self.firmware_version}, Pole: {self.current_pole_id or 'Unassigned'})"
+        return f"Device {self.device_id} (Pole: {self.current_pole_id or 'Unassigned'}, Live: {self.last_energized_state})"
 
 
-class TelemetryReading(models.Model):
+class TelemetryReading(TimeStampedModel):
     """
-    Append-only high-volume log table storing raw telemetry messages pushed by IoT devices.
+    Append-only log storing every raw telemetry packet exactly as received from IoT devices.
     """
     EVENT_HEARTBEAT = 'heartbeat'
     EVENT_POWER_LOST = 'power_lost'
@@ -69,7 +83,7 @@ class TelemetryReading(models.Model):
     pole_id = models.CharField(
         max_length=64,
         db_index=True,
-        help_text="Pole identifier associated with this telemetry reading."
+        help_text="Pole identifier associated with this telemetry packet."
     )
     event = models.CharField(
         max_length=32,
@@ -77,17 +91,17 @@ class TelemetryReading(models.Model):
         help_text="Event type: heartbeat, power_lost, power_restored, boot."
     )
     energized = models.BooleanField(
-        help_text="Current energization state seen by the device (True = Live, False = Dark)."
+        help_text="Current energization state seen by device (True = Live, False = Dark)."
     )
     device_timestamp = models.DateTimeField(
-        help_text="Device internal clock timestamp (Device clock skew up to ±90s)."
+        help_text="Device internal clock timestamp (Clock skew up to ±90s)."
     )
     sequence_number = models.BigIntegerField(
         help_text="Monotonic sequence number per device. Resets to 0 on boot."
     )
     battery_mv = models.IntegerField(
         default=3480,
-        help_text="Reserve capacitor voltage in mV (dying message power reserve)."
+        help_text="Reserve capacitor voltage in mV."
     )
     rssi = models.IntegerField(
         default=-91,

@@ -2,26 +2,24 @@ from typing import List, Dict, Any
 from apps.telemetry.repositories import DeviceRepository
 
 
-class HeartbeatMonitorService:
+class HeartbeatMonitor:
     """
-    Monitors IoT devices for missed heartbeats.
-    Detects silent outages for ~8% of the fleet running Firmware 1.2 (which send no power_lost packets).
+    Service responsible for scanning field device fleet to detect silent devices.
+    Detects silent outages for ~8% of fleet on Firmware 1.2 (which send no power_lost packets).
     """
 
-    # Heartbeat interval is 15 min ± 45s jitter. Threshold set to 20 minutes (1200 seconds).
-    HEARTBEAT_TIMEOUT_SECONDS = 1200
+    HEARTBEAT_TIMEOUT_SECONDS = 1200  # 15 min heartbeat + 5 min jitter/grace
 
     @classmethod
-    def check_silent_devices(cls) -> List[Dict[str, Any]]:
+    def detect_silent_devices(cls) -> List[Dict[str, Any]]:
         """
-        Scans active device registry for devices silent longer than the timeout window.
-        Returns a list of silent device status dicts.
+        Scans device registry for active devices silent longer than the 20-minute threshold.
         """
         silent_devices = DeviceRepository.get_silent_devices(timeout_seconds=cls.HEARTBEAT_TIMEOUT_SECONDS)
-        silent_records: List[Dict[str, Any]] = []
+        results: List[Dict[str, Any]] = []
 
         for device in silent_devices:
-            silent_records.append({
+            results.append({
                 'device_id': device.device_id,
                 'pole_id': device.current_pole_id,
                 'firmware_version': device.firmware_version,
@@ -29,4 +27,4 @@ class HeartbeatMonitorService:
                 'is_fw_1_2_silent': (device.firmware_version == '1.2')
             })
 
-        return silent_records
+        return results
