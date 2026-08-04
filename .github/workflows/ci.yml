@@ -1,0 +1,38 @@
+name: ESCOM Fault Platform CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Core & App Unit Tests
+        run: |
+          python -m unittest discover -s core_engine/tests
+          python -m unittest discover -s apps/faults/tests
+          python -m unittest discover -s apps/simulator/tests
+          python -m unittest discover -s apps/ai_assistant/tests
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build React Frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
