@@ -1,12 +1,12 @@
 from typing import Dict, Optional, List
-from apps.network.repositories import PoleRepository, TransformerRepository
+from apps.network.repositories import PoleRepository, TransformerRepository, FeederRepository
 from core_engine.domain.models import NetworkTree, NodeState
 
 
 class TopologyBuilderService:
     """
-    Service responsible for assembling pure-Python in-memory NetworkTree instances
-    from Django ORM database records for use in graph traversal algorithms.
+    Service responsible for loading electrical network assets from database repositories
+    and constructing in-memory radial tree/graph representations for algorithm processing.
     """
 
     @classmethod
@@ -17,12 +17,12 @@ class TopologyBuilderService:
         device_last_seen: Optional[Dict[str, float]] = None
     ) -> Optional[NetworkTree]:
         """
-        Retrieves poles for a given DT from the database and constructs a NetworkTree DTO.
+        Loads electrical network poles for a given DT and constructs an in-memory NetworkTree.
 
         :param dt_id: Primary key of the Distribution Transformer.
-        :param telemetry_states: Map of pole_id or device_id -> energized (bool).
-        :param device_last_seen: Map of pole_id or device_id -> last_seen_ts (float).
-        :return: Fully populated NetworkTree domain object.
+        :param telemetry_states: Optional map of pole_id/device_id -> energized (bool).
+        :param device_last_seen: Optional map of pole_id/device_id -> last_seen_ts (float).
+        :return: Fully populated NetworkTree object, or None if DT does not exist.
         """
         dt = TransformerRepository.get_by_id(dt_id)
         if not dt:
@@ -40,7 +40,7 @@ class TopologyBuilderService:
         telemetry_states = telemetry_states or {}
         device_last_seen = device_last_seen or {}
 
-        # First pass: Instantiate NodeState for each pole
+        # Pass 1: Instantiate NodeState for each static pole asset
         for pole in poles:
             pid = pole.pole_id
             parent_id = pole.parent_pole_id
@@ -48,7 +48,7 @@ class TopologyBuilderService:
             if pole.seq_on_line is None or (parent_id is None and pole.seq_on_line != 1):
                 is_inferred = True
 
-            # Determine energization state from telemetry map (defaults to True/Live)
+            # Lookup current energization state (default True/Live if telemetry unprovided)
             is_energized = telemetry_states.get(pid, True)
             if pole.device_id and pole.device_id in telemetry_states:
                 is_energized = telemetry_states[pole.device_id]
@@ -74,21 +74,19 @@ class TopologyBuilderService:
             )
             nodes[pid] = node
 
-            # Track parent -> children relationship
             if parent_id:
                 children_map.setdefault(parent_id, []).append(pid)
             elif pole.seq_on_line == 1 or parent_id is None:
                 root_pole_ids.append(pid)
 
-        # Second pass: Attach children_ids lists to parent nodes
+        # Pass 2: Connect children pointers to parent nodes
         for parent_id, c_ids in children_map.items():
             if parent_id in nodes:
                 nodes[parent_id].children_ids = c_ids
 
-        # If no explicit root pole was marked (e.g. unsequenced network), pick lowest seq or first pole
+        # Fallback root resolution if topology is unsequenced
         if not root_pole_ids and nodes:
-            first_pole_id = min(nodes.keys())
-            root_pole_ids.append(first_pole_id)
+            root_pole_ids.append(min(nodes.keys()))
 
         return NetworkTree(
             dt_id=dt_id,
@@ -97,3 +95,22 @@ class TopologyBuilderService:
             nodes=nodes,
             is_topology_inferred=is_inferred
         )
+
+    @classmethod
+    def get_trees_for_feeder(
+        cls,
+        feeder_id: str,
+        telemetry_states: Optional[Dict[str, bool]] = None
+    ) -> List[NetworkTree]:
+        """
+        Retrieves in-memory NetworkTree objects for all transformers under an 11kV feeder.
+        """
+        dts = TransformerRepository.list_by_feeder(feeder_id)
+        trees: List[NetworkTree] = []
+
+        for dt in dts:
+            tree = cls.build_tree_for_dt(dt.dt_id, telemetry_states=telemetry_states)
+            if tree:
+                trees.append(tree)
+
+        return trees
