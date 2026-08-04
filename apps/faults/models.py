@@ -35,7 +35,7 @@ class ScheduledOutage(TimeStampedModel):
         help_text="Planned shutdown start timestamp."
     )
     end_time = models.DateTimeField(
-        help_text="Planned shutdown end timestamp (Note: shutdowns overrun by 20-40 min routinely)."
+        help_text="Planned shutdown end timestamp."
     )
     reason = models.CharField(
         max_length=256,
@@ -56,7 +56,7 @@ class ScheduledOutage(TimeStampedModel):
 class FaultIncident(TimeStampedModel):
     """
     Represents a single localized physical grid fault incident ticket.
-    Exactly 1 ticket per physical fault (grouped across all downstream dark poles).
+    Lifecycle: Detected -> Acknowledged -> Crew Assigned -> Resolved -> Verified -> Closed.
     """
     ASSET_SPAN = 'span'
     ASSET_DT = 'dt'
@@ -72,14 +72,16 @@ class FaultIncident(TimeStampedModel):
     STATUS_ACKNOWLEDGED = 'acknowledged'
     STATUS_CREW_ASSIGNED = 'crew_assigned'
     STATUS_RESOLVED = 'resolved'
-    STATUS_VERIFIED_CLOSED = 'verified_closed'
+    STATUS_VERIFIED = 'verified'
+    STATUS_CLOSED = 'closed'
 
     STATUS_CHOICES = [
         (STATUS_DETECTED, 'Detected'),
         (STATUS_ACKNOWLEDGED, 'Acknowledged'),
         (STATUS_CREW_ASSIGNED, 'Crew Assigned'),
-        (STATUS_RESOLVED, 'Resolved (Pending Telemetry Verification)'),
-        (STATUS_VERIFIED_CLOSED, 'Verified Closed'),
+        (STATUS_RESOLVED, 'Resolved'),
+        (STATUS_VERIFIED, 'Verified'),
+        (STATUS_CLOSED, 'Closed'),
     ]
 
     ticket_id = models.UUIDField(
@@ -145,7 +147,13 @@ class FaultIncident(TimeStampedModel):
     )
     confidence_reasons = models.JSONField(
         default=list,
-        help_text="JSON list of human-readable diagnostic reasons explaining the confidence score."
+        help_text="JSON list of human-readable diagnostic reasons."
+    )
+    assigned_crew = models.CharField(
+        max_length=128,
+        blank=True,
+        null=True,
+        help_text="Assigned repair crew name or vehicle unit."
     )
     status = models.CharField(
         max_length=32,
@@ -162,7 +170,12 @@ class FaultIncident(TimeStampedModel):
     resolved_at = models.DateTimeField(
         null=True,
         blank=True,
-        help_text="Timestamp when telemetry verified full power restoration."
+        help_text="Timestamp when marked resolved by operator."
+    )
+    closed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when telemetry verified power restoration and auto-closed ticket."
     )
 
     class Meta:
@@ -207,3 +220,49 @@ class AffectedPole(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"AffectedPole {self.pole_id} (Incident: {self.incident_id}, Boundary: {self.is_boundary})"
+
+
+class IncidentTimeline(TimeStampedModel):
+    """
+    Audit log tracking the complete history of status transitions for a FaultIncident.
+    """
+    incident = models.ForeignKey(
+        FaultIncident,
+        on_delete=models.CASCADE,
+        related_name='timeline',
+        help_text="Associated fault incident ticket."
+    )
+    from_status = models.CharField(
+        max_length=32,
+        null=True,
+        blank=True,
+        help_text="Previous status."
+    )
+    to_status = models.CharField(
+        max_length=32,
+        help_text="New status."
+    )
+    changed_by = models.CharField(
+        max_length=64,
+        default='SYSTEM',
+        help_text="User, operator, or system component performing the transition."
+    )
+    notes = models.TextField(
+        blank=True,
+        default='',
+        help_text="Transition notes, dispatch info, or telemetry verification details."
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="Timestamp of status change."
+    )
+
+    class Meta:
+        db_table = 'faults_incident_timeline'
+        verbose_name = 'Incident Timeline Event'
+        verbose_name_plural = 'Incident Timeline Events'
+        ordering = ['timestamp']
+
+    def __str__(self) -> str:
+        return f"Timeline {self.incident_id}: {self.from_status} -> {self.to_status} ({self.changed_by})"
