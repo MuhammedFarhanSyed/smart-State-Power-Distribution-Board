@@ -42,6 +42,7 @@ def inject_transformer_fault(dt_id: str) -> dict:
     transformer = Transformer.objects.get(dt_id=dt_id)
     poles = list(transformer.poles.all())
     sent = _send_state(poles, "power_lost", False)
+    transformer.poles.all().update(is_energized=False, last_state_at=timezone.now())
     detect_for_transformer(transformer)
     return {"telemetry_messages_sent": sent, "affected_poles": len(poles)}
 
@@ -50,6 +51,7 @@ def inject_feeder_fault(feeder_id: str) -> dict:
     feeder = Feeder.objects.get(feeder_id=feeder_id)
     poles = list(Pole.objects.filter(transformer__feeder=feeder))
     sent = _send_state(poles, "power_lost", False)
+    Pole.objects.filter(transformer__feeder=feeder).update(is_energized=False, last_state_at=timezone.now())
     detect_for_feeder(feeder)
     return {"telemetry_messages_sent": sent, "affected_poles": len(poles)}
 
@@ -58,6 +60,8 @@ def repair_incident(incident_id: int) -> dict:
     incident_poles = list(IncidentPole.objects.filter(incident_id=incident_id).select_related("pole"))
     if not incident_poles:
         raise ValueError("This incident has no recorded affected poles to restore.")
-    sent = _send_state([link.pole for link in incident_poles], "power_restored", True)
+    poles = [link.pole for link in incident_poles]
+    sent = _send_state(poles, "power_restored", True)
+    Pole.objects.filter(id__in=[p.id for p in poles]).update(is_energized=True, last_state_at=timezone.now())
     verify_repaired_incidents()
-    return {"telemetry_messages_sent": sent, "affected_poles": len(incident_poles)}
+    return {"telemetry_messages_sent": sent, "affected_poles": len(poles)}

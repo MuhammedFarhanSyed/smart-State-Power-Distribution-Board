@@ -40,8 +40,9 @@ def detect_for_transformer(transformer: Transformer) -> None:
     if not dark_poles:
         return
 
-    observed_poles = [pole for pole in poles if pole.is_energized is not None]
-    if observed_poles and len(dark_poles) == len(observed_poles):
+    reporting_poles = [pole for pole in poles if pole.devices.all()]
+    dark_reporting = [pole for pole in reporting_poles if pole.is_energized is False]
+    if reporting_poles and len(dark_reporting) == len(reporting_poles):
         incident, created = Incident.objects.get_or_create(
             transformer=transformer,
             fault_type=Incident.FaultType.TRANSFORMER,
@@ -59,6 +60,10 @@ def detect_for_transformer(transformer: Transformer) -> None:
             IncidentPole.objects.bulk_create(
                 [IncidentPole(incident=incident, pole=pole) for pole in dark_poles], ignore_conflicts=True
             )
+        else:
+            incident.detected_at = timezone.now()
+            incident.affected_pole_count = len(dark_poles)
+            incident.save(update_fields=["detected_at", "affected_pole_count"])
         return
 
     has_usable_topology = any(pole.parent_id for pole in poles)
@@ -96,6 +101,10 @@ def detect_for_transformer(transformer: Transformer) -> None:
                 IncidentPole.objects.bulk_create(
                     [IncidentPole(incident=incident, pole=pole) for pole in downstream], ignore_conflicts=True
                 )
+            else:
+                incident.detected_at = timezone.now()
+                incident.affected_pole_count = len(downstream)
+                incident.save(update_fields=["detected_at", "affected_pole_count"])
         return
 
     # No explicit boundary: degrade honestly when line order has not been digitized.
@@ -116,6 +125,10 @@ def detect_for_transformer(transformer: Transformer) -> None:
         IncidentPole.objects.bulk_create(
             [IncidentPole(incident=incident, pole=pole) for pole in dark_poles], ignore_conflicts=True
         )
+    else:
+        incident.detected_at = timezone.now()
+        incident.affected_pole_count = len(dark_poles)
+        incident.save(update_fields=["detected_at", "affected_pole_count"])
 
 
 @transaction.atomic
@@ -144,6 +157,9 @@ def detect_for_feeder(feeder: Feeder) -> None:
         IncidentPole.objects.bulk_create(
             [IncidentPole(incident=incident, pole=pole) for pole in observed], ignore_conflicts=True
         )
+    else:
+        incident.detected_at = timezone.now()
+        incident.save(update_fields=["detected_at"])
 
 
 @transaction.atomic
