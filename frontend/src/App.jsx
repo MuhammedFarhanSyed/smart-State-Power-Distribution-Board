@@ -43,6 +43,11 @@ function App() {
     return selection.dtId === dtId && poleIndex >= selection.poleIndex;
   }
 
+  function toggleSelection(nextSelection, matchesCurrentSelection) {
+    setSelection(matchesCurrentSelection ? null : nextSelection);
+    setResult(null);
+  }
+
   async function createAlert() {
     if (!selection) return;
     setIsSubmitting(true);
@@ -89,7 +94,7 @@ function App() {
             <div className="mt-6 grid gap-5 md:grid-cols-3">
               {network.map((feeder) => (
                 <div key={feeder.feederId} className={`rounded-xl border p-4 ${selection?.type === "feeder" && selection.feederId === feeder.feederId ? "border-red-400 bg-red-50" : "border-slate-200"}`}>
-                  <button onClick={() => setSelection({ type: "feeder", feederId: feeder.feederId })} className="w-full rounded-lg bg-blue-700 px-3 py-2 text-left font-bold text-white hover:bg-blue-800">
+                  <button onClick={() => toggleSelection({ type: "feeder", feederId: feeder.feederId }, selection?.type === "feeder" && selection.feederId === feeder.feederId)} className="w-full rounded-lg bg-blue-700 px-3 py-2 text-left font-bold text-white hover:bg-blue-800">
                     {feeder.feederId}
                     <span className="mt-1 block text-xs font-normal text-blue-100">Click for feeder fault</span>
                   </button>
@@ -98,14 +103,14 @@ function App() {
                   <div className="space-y-5">
                     {feeder.transformers.map((transformer) => (
                       <div key={transformer.id}>
-                        <button onClick={() => setSelection({ type: "transformer", feederId: feeder.feederId, dtId: transformer.id })} className={`w-full rounded-lg px-3 py-2 text-left font-semibold ring-1 transition ${isDark(feeder.feederId, transformer.id) ? "bg-slate-800 text-white ring-slate-800" : "bg-amber-100 text-amber-950 ring-amber-300 hover:bg-amber-200"}`}>
+                        <button onClick={() => toggleSelection({ type: "transformer", feederId: feeder.feederId, dtId: transformer.id }, selection?.type === "transformer" && selection.dtId === transformer.id)} className={`w-full rounded-lg px-3 py-2 text-left font-semibold ring-1 transition ${isDark(feeder.feederId, transformer.id) ? "bg-slate-800 text-white ring-slate-800" : "bg-amber-100 text-amber-950 ring-amber-300 hover:bg-amber-200"}`}>
                           DT · {transformer.id}
                         </button>
                         <div className="ml-6 border-l-2 border-slate-300 pl-4 pt-3">
                           {transformer.poles.map((pole, index) => {
                             const dark = isDark(feeder.feederId, transformer.id, pole, index);
                             return (
-                              <button key={pole} onClick={() => setSelection({ type: "span", feederId: feeder.feederId, dtId: transformer.id, downstreamPoleId: pole, poleIndex: index })} className="group flex w-full items-center gap-2 py-1 text-left">
+                              <button key={pole} onClick={() => toggleSelection({ type: "span", feederId: feeder.feederId, dtId: transformer.id, downstreamPoleId: pole, poleIndex: index }, selection?.type === "span" && selection.downstreamPoleId === pole)} className="group flex w-full items-center gap-2 py-1 text-left">
                                 <span className={`h-3 w-3 rounded-full ring-4 ${dark ? "bg-slate-950 ring-slate-300" : "bg-emerald-500 ring-emerald-100"}`} />
                                 <span className={`text-sm font-medium ${dark ? "text-slate-900" : "text-slate-600"}`}>{pole}</span>
                                 <span className="ml-auto text-xs text-slate-400 opacity-0 group-hover:opacity-100">fault here</span>
