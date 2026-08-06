@@ -1,1 +1,0 @@
-# Simulator app initialization

@@ -1,1 +1,0 @@
-# Faults tests package

@@ -1,59 +1,7 @@
-version: '3.8'
-
 services:
-  db:
-    image: mysql:8.0
-    container_name: kspdb_mysql
-    restart: always
-    environment:
-      MYSQL_DATABASE: kspdb_fault_db
-      MYSQL_USER: kspdb_user
-      MYSQL_PASSWORD: kspdb_password
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: kspdb_backend
-    restart: always
-    environment:
-      - DB_ENGINE=django.db.backends.mysql
-      - DB_NAME=kspdb_fault_db
-      - DB_USER=kspdb_user
-      - DB_PASSWORD=kspdb_password
-      - DB_HOST=db
-      - DB_PORT=3306
-      - USE_SQLITE=False
-      - SECRET_KEY=kspdb-production-secret-key-2026
-      - DEBUG=True
-      - ALLOWED_HOSTS=*
-      - AI_PROVIDER=mock
+    build: ./backend
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: kspdb_frontend
-    restart: always
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-
-volumes:
-  mysql_data:
+    volumes:
+      - ./backend:/app

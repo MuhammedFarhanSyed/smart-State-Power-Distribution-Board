@@ -1,1 +1,0 @@
-# Network app initialization

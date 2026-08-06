@@ -1,10 +1,7 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('apps.telemetry.urls')),
-    path('api/', include('apps.faults.urls')),
-    path('api/', include('apps.simulator.urls')),
-    path('api/', include('apps.ai_assistant.urls')),
+    path("admin/", admin.site.urls),
+    path("api/", include("incidents.urls")),
 ]
