@@ -6,7 +6,8 @@ An intelligent, real-time power outage detection, fault localization, and operat
 
 ## 🔗 Submission Links
 
-- **Public Deployed URL**: [https://kspdb-console.vercel.app](https://kspdb-console.vercel.app) *(Replace with actual deployed URL)*
+- **Public Deployed Console**: [https://smart-state-power-distribution-boar.vercel.app](https://smart-state-power-distribution-boar.vercel.app)
+- **Live Backend API**: [https://smart-state-power-distribution-board.onrender.com/api/health/](https://smart-state-power-distribution-board.onrender.com/api/health/)
 - **5-Minute Demo Video**: [https://youtu.be/kspdb-demo-walkthrough](https://youtu.be/kspdb-demo-walkthrough) *(Demonstrates inject $\rightarrow$ detect $\rightarrow$ localize $\rightarrow$ ticket $\rightarrow$ repair $\rightarrow$ auto-verify)*
 - **GitHub Repository**: [https://github.com/MuhammedFarhanSyed/smart-State-Power-Distribution-Board](https://github.com/MuhammedFarhanSyed/smart-State-Power-Distribution-Board)
 
