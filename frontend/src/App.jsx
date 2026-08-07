@@ -25,6 +25,8 @@ const network = [
   }
 ];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
 function App() {
   const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "simulator"
   const [incidents, setIncidents] = useState([]);
@@ -35,7 +37,7 @@ function App() {
   // Fetch live incidents from Django backend
   async function fetchIncidents() {
     try {
-      const response = await fetch("/api/incidents/");
+      const response = await fetch(`${API_BASE}/api/incidents/`);
       if (response.ok) {
         const data = await response.json();
         setIncidents(data);
@@ -81,7 +83,7 @@ function App() {
         : { fault_type: "span", downstream_pole_id: selection.downstreamPoleId };
 
     try {
-      const response = await fetch("/api/simulator/faults/", {
+      const response = await fetch(`${API_BASE}/api/simulator/faults/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

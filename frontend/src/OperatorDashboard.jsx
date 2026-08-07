@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
 export default function OperatorDashboard({ incidents, onRefresh }) {
   const [feedTab, setFeedTab] = useState("active"); // "active" | "closed"
   const [assigningId, setAssigningId] = useState(null);
@@ -11,7 +13,7 @@ export default function OperatorDashboard({ incidents, onRefresh }) {
     setActionLoading(incidentId);
     setMessage(null);
     try {
-      const res = await fetch(`/api/incidents/${incidentId}/acknowledge/`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/incidents/${incidentId}/acknowledge/`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to acknowledge incident");
       setMessage({ type: "success", text: `Incident #${incidentId} acknowledged.` });
@@ -28,7 +30,7 @@ export default function OperatorDashboard({ incidents, onRefresh }) {
     setActionLoading(incidentId);
     setMessage(null);
     try {
-      const res = await fetch(`/api/incidents/${incidentId}/assign/`, {
+      const res = await fetch(`${API_BASE}/api/incidents/${incidentId}/assign/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ crew_name: crewName.trim() })
@@ -50,7 +52,7 @@ export default function OperatorDashboard({ incidents, onRefresh }) {
     setActionLoading(incidentId);
     setMessage(null);
     try {
-      const res = await fetch(`/api/incidents/${incidentId}/repair-reported/`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/incidents/${incidentId}/repair-reported/`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to report repair");
       setMessage({ type: "success", text: `Repair reported for Incident #${incidentId}. Awaiting telemetry verification.` });
@@ -66,7 +68,7 @@ export default function OperatorDashboard({ incidents, onRefresh }) {
     setActionLoading(incidentId);
     setMessage(null);
     try {
-      const res = await fetch(`/api/simulator/incidents/${incidentId}/repair/`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/api/simulator/incidents/${incidentId}/repair/`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to simulate restoration");
       setMessage({ type: "success", text: `Restoration telemetry verified! Incident #${incidentId} moved to VERIFIED & CLOSED.` });
