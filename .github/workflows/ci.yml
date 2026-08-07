@@ -1,4 +1,4 @@
-name: ESCOM Fault Platform CI/CD
+name: KSPDB Outage Platform CI/CD
 
 on:
   push:
@@ -19,12 +19,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run Core & App Unit Tests
+      - name: Install Backend Dependencies & Run Tests
         run: |
-          python -m unittest discover -s core_engine/tests
-          python -m unittest discover -s apps/faults/tests
-          python -m unittest discover -s apps/simulator/tests
-          python -m unittest discover -s apps/ai_assistant/tests
+          cd backend
+          pip install -r requirements.txt
+          python manage.py test
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
