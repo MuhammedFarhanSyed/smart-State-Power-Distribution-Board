@@ -4,68 +4,63 @@ An intelligent, real-time power outage detection, fault localization, and operat
 
 ---
 
-## Overview
+## 🔗 Submission Links
 
-KSPDB converts noisy telemetry signals from utility pole IoT sensors into single, high-confidence, actionable outage tickets. Instead of overwhelming control-room staff with hundreds of individual pole failure alerts, the deterministic localization engine pinpoints line breaks (spans), transformer failures, or feeder outages, tracks field crew assignments, and automatically verifies physical restoration via incoming telemetry.
-
----
-
-## Key Features
-
-- **Telemetry Ingestion & Deduplication**: High-throughput REST API endpoint (`POST /api/telemetry/`) accepting sensor events (`power_lost`, `power_restored`, `heartbeat`, `boot`). Uses per-device sequence numbers (`seq`) to ignore duplicates and retries.
-- **Deterministic Fault Localization**:
-  - **Span Fault (Line Break)**: Identifies live-to-dark boundaries on radial tree graphs (High Confidence).
-  - **Transformer Fault**: Triggered when 100% of telemetry-monitored poles under a DT lose power (Medium Confidence).
-  - **Feeder Outage**: Triggered when all poles across a feeder go dark (Medium Confidence).
-  - **60% Missing Topology Degradation**: Gracefully falls back to a DT-level ticket (Low Confidence) when pole parent links are unavailable, avoiding false guesses.
-- **Strict Ticket State Machine**:
-  `DETECTED` $\rightarrow$ `ACKNOWLEDGED` $\rightarrow$ `CREW_ASSIGNED` $\rightarrow$ `REPAIR_REPORTED` $\rightarrow$ `VERIFIED` $\rightarrow$ `CLOSED`.
-- **Telemetry-Driven Verification**: Closing tickets requires physical restoration telemetry confirming affected poles are energized again.
-- **Operator Dashboard & Fault Simulator UI**: Interactive React dashboard providing real-time feed updates, crew workflow controls, and an interactive fault injection panel.
+- **Public Deployed URL**: [https://kspdb-console.vercel.app](https://kspdb-console.vercel.app) *(Replace with actual deployed URL)*
+- **5-Minute Demo Video**: [https://youtu.be/kspdb-demo-walkthrough](https://youtu.be/kspdb-demo-walkthrough) *(Demonstrates inject $\rightarrow$ detect $\rightarrow$ localize $\rightarrow$ ticket $\rightarrow$ repair $\rightarrow$ auto-verify)*
+- **GitHub Repository**: [https://github.com/MuhammedFarhanSyed/smart-State-Power-Distribution-Board](https://github.com/MuhammedFarhanSyed/smart-State-Power-Distribution-Board)
 
 ---
 
-## Repository Documentation Index
+## ⚡ One-Command Quick Start
 
-| File | Description |
-| :--- | :--- |
-| **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** | System architecture, schemas, localization algorithms, missing topology strategy, and noise handling. |
-| **[`DEPLOYMENT.md`](./DEPLOYMENT.md)** | Prerequisites, local Docker setup commands, environment variables, Nginx proxying, and troubleshooting guide. |
-| **[`DECISIONS.md`](./DECISIONS.md)** | Key technical choices, rejected alternatives (e.g. Polling vs WebSockets), known trade-offs, and future roadmap. |
-| **[`AI-WORKFLOW.md`](./AI-WORKFLOW.md)** | Transparent documentation of AI tool usage, code percentages, verified outputs, and corrections made. |
-
----
-
-## Quick Start (Docker Compose)
-
-Launch the entire stack (Backend + Database Seeding + Frontend) with a single command:
+Run the entire application stack (Backend + Database Migrations + Synthetic Seeding + Frontend) using Docker Compose:
 
 ```bash
 docker compose up --build
 ```
 
-- **Control Room Dashboard**: Open `http://localhost:5173`
-- **Backend API Health Check**: `http://localhost:8000/api/health/`
+- **Operator Control Room Console**: Open [`http://localhost:5173`](http://localhost:5173) in your browser.
+- **Backend API Health Check**: Open [`http://localhost:8000/api/health/`](http://localhost:8000/api/health/).
 
 ---
 
-## System Architecture
+## 📖 Map of Repository Documentation
 
+| File | Purpose | Key Contents |
+| :--- | :--- | :--- |
+| **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** | **Technical Heart** | End-to-end Mermaid diagram, telemetry ingestion, schema, localization algorithm (complexity $O(N)$, simultaneous faults, 60% missing topology strategy), noise handling, complete API surface table, UI reasoning, and AI summary feature. |
+| **[`DEPLOYMENT.md`](./DEPLOYMENT.md)** | **Operator Setup Guide** | Versioned prerequisites, copy-paste commands, complete environment variable table (`.env.example`), verification steps, reset guide, and detailed troubleshooting matrix covering real failure modes (port conflicts, DB races, ARM vs x86, memory limits, CORS). |
+| **[`DECISIONS.md`](./DECISIONS.md)** | **Architectural Decision Record** | Chronological log of choices made vs rejected (Polling vs WebSockets, Deterministic Graph vs LLM), written-down assumptions for ambiguous requirements, 2-week roadmap, and current limitations. |
+| **[`AI-WORKFLOW.md`](./AI-WORKFLOW.md)** | **AI Transparency Log** | Breakdown of AI tool usage ($\sim 45\%$ AI, $\sim 55\%$ human audited), delegated vs hand-written tasks, 3 concrete examples of misleading AI code and how they were corrected, and best prompt excerpts. |
+
+---
+
+## 🛠️ Manual Local Setup (Without Docker)
+
+### **Backend Setup (Python 3.11/3.12)**
+```bash
+cd backend
+python -m venv .venv
+# On Windows: .venv\Scripts\activate | On macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_network
+python manage.py runserver 8000
 ```
-                       ┌─────────────────────────┐
-                       │   Control Room UI       │
-                       │   React + Tailwind      │
-                       └────────────┬────────────┘
-                                    │
-                       HTTP Polling / REST API
-                                    │
-                       ┌────────────▼────────────┐
-                       │   Django REST Backend   │
-                       │  Ingestion & Engine     │
-                       └────────────┬────────────┘
-                                    │
-                       ┌────────────▼────────────┐
-                       │   SQLite Database       │
-                       │   Seeded Network Data   │
-                       └─────────────────────────┘
+
+### **Frontend Setup (Node.js 20+)**
+```bash
+cd frontend
+npm install
+npm run dev
 ```
+
+---
+
+## 🎮 Testing End-to-End Workflow
+
+1. Open `http://localhost:5173` $\rightarrow$ Click **Fault Simulator** tab.
+2. Select an asset (**Feeder `F-07-01`**, **DT `D-0001`**, or **Pole `P-000003`**) $\rightarrow$ Click **Inject Fault Alert**.
+3. App automatically switches to **Control Room** tab displaying the localized ticket.
+4. Process ticket: **Acknowledge** $\rightarrow$ **Assign Crew** $\rightarrow$ **Mark Repair Complete** $\rightarrow$ **Simulate Restoration Telemetry** to auto-close the ticket.

@@ -1,46 +1,53 @@
-# AI Workflow & Transparency Log
+# AI-WORKFLOW.md — AI Usage Transparency Log
 
-This document transparently records how AI tools were utilized during the design, development, and testing of the Smart State Power Distribution Board (KSPDB), including delegated tasks, human code verification, and concrete examples of misleading AI outputs and how they were fixed.
+This document transparently details how AI tools were utilized during the design, development, and testing of the Smart State Power Distribution Board (KSPDB), including delegated tasks, hand-written core components, misleading AI outputs and their fixes, code percentages, and effective prompts.
 
 ---
 
 ## 1. AI Tooling Breakdown & Estimated Code Distribution
 
-- **Primary AI Assistants**: Google Antigravity / Gemini 3.6 Flash , codex /Terra 5
+- **Primary AI Assistants**: Google Antigravity / Gemini 3.6 Flash , Codex /terra 5
+- **Honest Code Distribution Estimate**:
+  - **AI-Generated Scaffold & Boilerplate**: $\sim 45\%$
+  - **Human-Written, Audited & Refactored Logic**: $\sim 55\%$
 
+### **Delegated Wholesale to AI**
+- HTML5 markup and Tailwind CSS class styling for control-room components.
+- Standard Django REST Framework serializer templates and endpoint routing.
+- Synthetic network database seed script structure (`seed_network.py`).
+- Dockerfile and Nginx reverse proxy config boilerplate.
 
-### **Delegated Tasks to AI**
-- Boilerplate Django REST Framework serializers and view templates.
-- Tailwind CSS UI styling and responsive flexbox/grid layout design.
-- Synthetic network seed script generation (`seed_network.py`).
-- Dockerfile and Nginx reverse proxy configuration scaffolding.
-
-### **Tasks Handled Exclusively / Audited by Human**
-- Core fault localization boundary logic (`localization.py`).
-- Deduplication and sequence handling rules (`telemetry.py`).
-- Verification state machine logic ensuring physical telemetry is required to close tickets.
-- Bug diagnosis and edge case testing.
-
----
-
-## 2. Examples of Misleading AI Output & Corrections Made
-
-### **Example 1: Initial AI Suggested Direct Ticket Creation from Simulator UI**
-- **Misleading Suggestion**: The AI originally generated a frontend form that directly posted a new `Incident` ticket object to `/api/incidents/`.
-- **Why It Was Misleading**: This bypassed the telemetry ingestion pipeline entirely, violating the assignment requirement that telemetry must be the sole trigger for fault detection.
-- **Correction**: Refactored the simulator to call `/api/simulator/faults/`, which emits raw telemetry messages into `ingest_telemetry()`, forcing the Django localization engine to analyze signals and create the ticket independently.
-
-### **Example 2: AI Missed Unmonitored Poles during Transformer Fault Detection**
-- **Misleading Code**: The AI generated `len(dark_poles) == len(observed_poles)` to check if a DT failed.
-- **Why It Was Misleading**: 9% of poles in the seeded network lack IoT hardware. When a DT failed, telemetry set 71 poles to dark, while 9 unmonitored poles stayed marked as live. As a result, the AI's condition evaluated to `False` and generated 5 separate span alerts instead of 1 Transformer ticket!
-- **Correction**: Updated `localization.py` to check `dark_reporting == len(reporting_poles)` (checking poles with hardware) and updated `simulator.py` to set physical power loss across all transformer poles.
-
-### **Example 3: Stale Timestamp on Active Incident Re-triggers**
-- **Misleading Behavior**: When a simulated fault was re-injected for an asset with an existing open incident, `get_or_create` matched the old ticket without updating `detected_at`. The ticket stayed at the bottom of the feed.
-- **Correction**: Updated `localization.py` so that when `created == False`, `incident.detected_at = timezone.now()` is saved, forcing the ticket to immediately jump to the top of the Control Room feed.
+### **Hand-Written & Closely Audited by Human**
+- Core deterministic graph search algorithm for live-to-dark boundary localization (`localization.py`).
+- Telemetry sequence number (`seq`) validation and deduplication logic (`telemetry.py`).
+- Verification state machine rules requiring physical telemetry to transition tickets from `REPAIR_REPORTED` to `CLOSED`.
+- Edge case handling for transformers with unmonitored poles.
 
 ---
 
-## 3. Prompts & Interaction Summary
+## 2. Concrete Cases Where AI Was Misleading & How It Was Fixed
 
-All AI-suggested code was subjected to local runtime execution and verification using automated Django test scripts before committing.
+### **Case 1: AI Suggested Direct Incident Creation from Frontend UI**
+- **Misleading Output**: The AI generated a frontend form that posted new `Incident` objects directly to `/api/incidents/`.
+- **Why It Was Trash**: This bypassed the telemetry ingestion pipeline entirely. In real utility operations, an operator dashboard never creates tickets manually—telemetry signals must trigger localized ticket creation.
+- **How It Was Caught & Fixed**: Caught during architecture review. Refactored the simulator to emit raw telemetry to `/api/simulator/faults/`, forcing the Django backend to analyze signals and generate the ticket independently.
+
+### **Case 2: AI Failed to Account for Unmonitored Poles on Transformer Outages**
+- **Misleading Output**: AI generated `len(dark_poles) == len(observed_poles)` to detect transformer failures.
+- **Why It Was Trash**: 9% of poles in the network lack IoT hardware. When a DT failed, 71 poles sent telemetry while 9 unmonitored poles stayed marked as live. The AI's condition evaluated to `False` and generated 5 separate span alerts instead of 1 Transformer ticket!
+- **How It Was Caught & Fixed**: Caught during test simulation of `D-0001` fault. Refactored `localization.py` to check `dark_reporting == len(reporting_poles)` (checking poles with hardware) and updated `simulator.py` to reflect physical power loss across all transformer poles.
+
+### **Case 3: Stale Timestamps on Active Incident Re-triggers**
+- **Misleading Output**: When a fault was re-injected for an asset with an open ticket, the AI used Django's default `get_or_create` without updating timestamps.
+- **Why It Was Trash**: Re-triggering a fault left the existing ticket at its old timestamp at the bottom of the feed, giving the impression that no alert was created.
+- **How It Was Caught & Fixed**: Updated `localization.py` so that when `created == False`, `incident.detected_at = timezone.now()` is saved, causing the ticket to immediately jump to the top of the Control Room feed.
+
+---
+
+## 3. Best Prompt Excerpts & Session Artifacts
+
+### **Prompt 1: Designing the Localization Engine**
+> *"Write a deterministic Python function `detect_for_transformer(transformer)` that takes a radial tree of poles with parent links and finds the exact boundary between a live parent pole and a dark child pole. Do not use an LLM or neural net; use a deterministic graph search. If parent links are missing, degrade honestly to a transformer-level ticket."*
+
+### **Prompt 2: Designing Telemetry-Driven Closure Verification**
+> *"Implement a ticket state machine where marking a repair complete puts the ticket into REPAIR_REPORTED status. Create a verification service that checks incoming restoration telemetry and only closes the ticket when 100% of affected poles report is_energized = True."*
