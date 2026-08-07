@@ -33,6 +33,5 @@ jobs:
       - name: Build React Frontend
         run: |
           cd frontend
-          npm install
-          chmod +x node_modules/.bin/* || true
-          npx vite build
+          npm ci || npm install
+          npm run build
